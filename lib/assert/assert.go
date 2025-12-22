@@ -1,17 +1,17 @@
 package assert
 
 import (
-	"fmt"
+	"log"
 )
 
 func NoErr(err error) {
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
 func True(v bool, msg ...any) {
 	if !v {
-		panic(fmt.Sprint(msg...))
+		log.Fatal(msg...)
 	}
 }
