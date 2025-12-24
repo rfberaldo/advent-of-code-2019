@@ -24,7 +24,7 @@ func main() {
 	}
 
 	ic := intcode.New(pgrm)
-	ic.AddInput(1)
+	ic.AddInput(5)
 	ic.Run()
 
 	fmt.Println(time.Since(start))

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"testing"
 )
 
 const DEBUG = false
@@ -13,11 +12,15 @@ const DEBUG = false
 type OpCode int
 
 const (
-	OpCodeAdd    OpCode = 1
-	OpCodeMul    OpCode = 2
-	OpCodeInput  OpCode = 3
-	OpCodeOutput OpCode = 4
-	OpCodeExit   OpCode = 99
+	OpCodeAdd         OpCode = 1
+	OpCodeMul         OpCode = 2
+	OpCodeInput       OpCode = 3
+	OpCodeOutput      OpCode = 4
+	OpCodeGotoIfTrue  OpCode = 5
+	OpCodeGotoIfFalse OpCode = 6
+	OpCodeLessThan    OpCode = 7
+	OpCodeEqual       OpCode = 8
+	OpCodeExit        OpCode = 99
 )
 
 type PMode int // Parameter mode
@@ -27,11 +30,15 @@ const (
 	PModeImmediate PMode = 1
 )
 
-var stepsByOp = map[OpCode]int{
-	OpCodeAdd:    4,
-	OpCodeMul:    4,
-	OpCodeInput:  2,
-	OpCodeOutput: 2,
+var stepsByOpCode = map[OpCode]int{
+	OpCodeAdd:         4,
+	OpCodeMul:         4,
+	OpCodeInput:       2,
+	OpCodeOutput:      2,
+	OpCodeGotoIfTrue:  3,
+	OpCodeGotoIfFalse: 3,
+	OpCodeLessThan:    4,
+	OpCodeEqual:       4,
 }
 
 type IntCode struct {
@@ -39,11 +46,17 @@ type IntCode struct {
 	position   int
 	opcode     OpCode
 	paramsMode map[int]PMode
+	inputQueue []int
+	output     []int
 }
 
 func New(pgrm []int) *IntCode {
 	assert.True(len(pgrm) > 0, "expect len > 0, got: ", len(pgrm))
 	return &IntCode{pgrm: pgrm, paramsMode: make(map[int]PMode)}
+}
+
+func (ic *IntCode) AddInput(n int) {
+	ic.inputQueue = append(ic.inputQueue, n)
 }
 
 func (ic *IntCode) log(format string, v ...any) {
@@ -67,10 +80,9 @@ func (ic *IntCode) setParamsMode() {
 }
 
 func (ic *IntCode) step() {
-	ic.position += stepsByOp[ic.opcode]
-	ic.log("position=%v (%v)\n", ic.position, stepsByOp[ic.opcode])
+	ic.position += stepsByOpCode[ic.opcode]
+	ic.log("position=%v (%v)\n", ic.position, stepsByOpCode[ic.opcode])
 	ic.checkPosition(ic.position)
-	ic.paramsMode = make(map[int]PMode)
 }
 
 func (ic *IntCode) checkPosition(pos int) {
@@ -113,8 +125,10 @@ func (ic *IntCode) valueOfParam(n int) int {
 	return ic.valueOfAddr(ic.position + n)
 }
 
-func (ic *IntCode) Run() []int {
+func (ic *IntCode) Run() {
+forLoop:
 	for {
+		ic.paramsMode = make(map[int]PMode)
 		ic.opcode = OpCode(ic.pgrm[ic.position])
 		ic.log("opcode=%v\n", ic.opcode)
 
@@ -126,7 +140,7 @@ func (ic *IntCode) Run() []int {
 		switch ic.opcode {
 		case OpCodeExit:
 			ic.log("exiting\n")
-			return ic.pgrm
+			return
 
 		case OpCodeAdd:
 			ic.writeToParam(3, ic.valueOfParam(1)+ic.valueOfParam(2))
@@ -135,18 +149,42 @@ func (ic *IntCode) Run() []int {
 			ic.writeToParam(3, ic.valueOfParam(1)*ic.valueOfParam(2))
 
 		case OpCodeInput:
-			fmt.Print("Enter an integer: ")
-			var input int
-			if testing.Testing() {
-				input = 69
-			} else {
-				_, err := fmt.Scanln(&input)
-				assert.NoErr(err)
-			}
-			ic.writeToParam(1, input)
+			assert.True(len(ic.inputQueue) > 0, "input queue should be > 0, got: ", len(ic.inputQueue))
+
+			ic.log("using input=%v then discarding\n", ic.inputQueue[0])
+			ic.writeToParam(1, ic.inputQueue[0])
+			ic.inputQueue = ic.inputQueue[1:]
 
 		case OpCodeOutput:
-			fmt.Printf("[OUTPUT] %v\n", ic.valueOfParam(1))
+			v := ic.valueOfParam(1)
+			ic.output = append(ic.output, v)
+			fmt.Printf("[OUTPUT] %v\n", v)
+
+		case OpCodeGotoIfTrue:
+			if ic.valueOfParam(1) != 0 {
+				ic.position = ic.valueOfParam(2)
+				continue forLoop
+			}
+
+		case OpCodeGotoIfFalse:
+			if ic.valueOfParam(1) == 0 {
+				ic.position = ic.valueOfParam(2)
+				continue forLoop
+			}
+
+		case OpCodeLessThan:
+			v := 0
+			if ic.valueOfParam(1) < ic.valueOfParam(2) {
+				v = 1
+			}
+			ic.writeToParam(3, v)
+
+		case OpCodeEqual:
+			v := 0
+			if ic.valueOfParam(1) == ic.valueOfParam(2) {
+				v = 1
+			}
+			ic.writeToParam(3, v)
 
 		default:
 			log.Fatalf("unknown opcode=%v", ic.opcode)
