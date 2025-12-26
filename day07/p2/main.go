@@ -52,24 +52,31 @@ func main() {
 	start := time.Now()
 
 	pgrm := parse()
-	orders := permutations([]int{0, 1, 2, 3, 4})
-
-	run := func(n ...int) int {
-		ic := intcode.New(pgrm)
-		ic.AddInput(n...)
-		ic.Run()
-		assert.True(ic.Done())
-		return ic.LastOutput()
-	}
+	orders := permutations([]int{5, 6, 7, 8, 9})
 
 	result := 0
 	for _, order := range orders {
-		output := run(order[0], 0)
-		output = run(order[1], output)
-		output = run(order[2], output)
-		output = run(order[3], output)
-		output = run(order[4], output)
-		result = max(result, output)
+		icA := intcode.New(pgrm).SetName("Amp A")
+		icB := intcode.New(pgrm).SetName("Amp B")
+		icC := intcode.New(pgrm).SetName("Amp C")
+		icD := intcode.New(pgrm).SetName("Amp D")
+		icE := intcode.New(pgrm).SetName("Amp E")
+
+		icA.AddInput(order[0], 0).AddFeedback(icE)
+		icB.AddInput(order[1]).AddFeedback(icA)
+		icC.AddInput(order[2]).AddFeedback(icB)
+		icD.AddInput(order[3]).AddFeedback(icC)
+		icE.AddInput(order[4]).AddFeedback(icD)
+
+		for !icE.Done() {
+			icA.Run()
+			icB.Run()
+			icC.Run()
+			icD.Run()
+			icE.Run()
+		}
+
+		result = max(result, icE.LastOutput())
 	}
 
 	fmt.Println("Result:", result)

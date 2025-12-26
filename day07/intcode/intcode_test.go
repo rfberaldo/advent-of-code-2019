@@ -147,15 +147,51 @@ func TestIntCode(t *testing.T) {
 	for _, tc := range tests {
 		ic := New(tc.pgrm)
 		ic.inputQueue = tc.inputQueue
-		input := slices.Clone(tc.pgrm)
-		output := ic.Run()
+		ic.Run()
+
+		if !ic.done {
+			t.Fatalf("input: %v returned false", tc.pgrm)
+		}
 
 		if len(tc.expect) > 0 && !slices.Equal(ic.pgrm, tc.expect) {
-			t.Fatalf("\n  input: %v\n   want: %v\n    got: %v", input, tc.expect, ic.pgrm)
+			t.Fatalf("\n  input: %v\n   want: %v\n    got: %v", tc.pgrm, tc.expect, ic.pgrm)
 		}
 
-		if !slices.Equal(output, tc.expectOutput) {
-			t.Fatalf("\n  input: %v\n   want output: %v\n    got output: %v", input, tc.expectOutput, output)
+		if !slices.Equal(ic.output, tc.expectOutput) {
+			t.Fatalf("\n  input: %v\n   want output: %v\n    got output: %v", tc.pgrm, tc.expectOutput, ic.output)
 		}
+	}
+}
+
+func TestIntCode_feedback_loop(t *testing.T) {
+	pgrm := []int{3, 26, 1001, 26, -4, 26, 3, 27, 1002, 27, 2, 27, 1, 27, 26, 27, 4, 27, 1001, 28, -1, 28, 1005, 28, 6, 99, 0, 0, 5}
+
+	icA := New(pgrm).SetName("Amp A")
+	icB := New(pgrm).SetName("Amp B")
+	icC := New(pgrm).SetName("Amp C")
+	icD := New(pgrm).SetName("Amp D")
+	icE := New(pgrm).SetName("Amp E")
+
+	icA.AddInput(9, 0).AddFeedback(icE)
+	icB.AddInput(8).AddFeedback(icA)
+	icC.AddInput(7).AddFeedback(icB)
+	icD.AddInput(6).AddFeedback(icC)
+	icE.AddInput(5).AddFeedback(icD)
+
+	for !icE.done {
+		icA.Run()
+		icB.Run()
+		icC.Run()
+		icD.Run()
+		icE.Run()
+	}
+
+	if !icE.done {
+		t.Fatal("expected to be done")
+	}
+
+	const expect = 139629729
+	if icE.LastOutput() != expect {
+		t.Fatalf("\nwant: %v\n got: %v", expect, icE.LastOutput())
 	}
 }
