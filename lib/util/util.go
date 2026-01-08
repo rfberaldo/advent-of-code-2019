@@ -14,5 +14,13 @@ func Input() []string {
 	assert.True(ok)
 	data, err := os.ReadFile(filepath.Dir(callerfile) + "/input.txt")
 	assert.NoErr(err)
-	return strings.Split(strings.TrimSpace(string(data)), "\n")
+
+	lines := strings.Split(string(data), "\n")
+
+	// remove final newline
+	if lines[len(lines)-1] == "" {
+		return lines[:len(lines)-1]
+	}
+
+	return lines
 }
