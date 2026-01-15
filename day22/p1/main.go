@@ -67,8 +67,52 @@ func solve() int {
 	return slices.Index(deck, 2019)
 }
 
+func mod(x, y int) int {
+	r := x % y
+	if r < 0 {
+		r += y
+	}
+	return r
+}
+
+// https://codeforces.com/blog/entry/72593
+func solve_congruential() int {
+	const deckSize = 10007
+
+	a, b := 1, 0
+	for _, line := range util.Input() {
+		c, d := -1, -1 // deal into new stack
+
+		fields := strings.Fields(line)
+		switch {
+		case fields[0] == "cut":
+			n, err := strconv.Atoi(fields[len(fields)-1])
+			assert.NoErr(err)
+			c, d = 1, -n
+
+		case fields[2] == "increment":
+			n, err := strconv.Atoi(fields[len(fields)-1])
+			assert.NoErr(err)
+			c, d = n, 0
+		}
+
+		// compose operation between two linear congruential functions
+		// (a,b) ; (c,d) = (ac mod m, bc+d mod m)
+		a = mod(a*c, deckSize)
+		b = mod(b*c+d, deckSize)
+	}
+
+	// linear congruential function, where m = deckSize
+	// f(x) = ax + b mod m
+	return mod(a*2019+b, deckSize)
+}
+
 func main() {
 	start := time.Now()
-	fmt.Println("Result:", solve())
+	fmt.Println("Result (slices):", solve())
+	fmt.Println(time.Since(start))
+
+	start = time.Now()
+	fmt.Println("Result (congruential):", solve_congruential())
 	fmt.Println(time.Since(start))
 }
